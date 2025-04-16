@@ -62,8 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 最近の船体番号を読み込む
   async function loadRecentShips() {
     try {
-      const response = await fetch('/api/recent-ships');
-      const data = await response.json();
+      const data = await API.get('/api/recent-ships');
 
       recentShipsContainer.innerHTML = '';
       data.ships.forEach(ship => {
@@ -86,8 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ブロックリストを読み込む
   async function loadBlockList() {
     try {
-      const response = await fetch('/api/blocks');
-      const data = await response.json();
+      const data = await API.get('/api/blocks');
       blockList = data.blocks;
     } catch (error) {
       console.error('ブロックリスト取得エラー:', error);
@@ -189,31 +187,15 @@ document.addEventListener('DOMContentLoaded', () => {
       formData.append('audio', audioBlob);
 
       // Whisper APIで文字起こし
-      const whisperRes = await fetch('/api/whisper', {
-        method: 'POST',
-        body: formData,
-      });
+      const { transcript } = await API.upload('/api/whisper', formData);
 
-      if (!whisperRes.ok) {
-        const errorData = await whisperRes.json();
-        console.error('Whisper APIエラー詳細:', errorData);
-        throw new Error(`Whisper API エラー: ${errorData.error || JSON.stringify(errorData)}`);
-      }
-
-      const { transcript } = await whisperRes.json();
+      // APIオブジェクトのAPI.upload関数内でエラーハンドリング済み
 
       // ChatGPTで要約とブロック推定
-      const gptRes = await fetch('/api/summarize', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: transcript, blocks: blockList }),
+      const { summary, blockName } = await API.post('/api/summarize', { 
+        text: transcript, 
+        blocks: blockList 
       });
-
-      if (!gptRes.ok) {
-        throw new Error('要約 API エラー');
-      }
-
-      const { summary, blockName } = await gptRes.json();
 
       // 結果表示 - サーバーからの要約を不具合報告欄に表示
       summaryDisplay.value = summary;
@@ -296,14 +278,7 @@ document.addEventListener('DOMContentLoaded', () => {
     statusDisplay.textContent = '保存中...';
 
     // Supabaseに保存するAPIリクエスト
-    fetch('/api/save-report', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(reportData)
-    })
-    .then(response => response.json())
+    API.post('/api/save-report', reportData)
     .then(result => {
       if (result.success) {
         // 成功時
