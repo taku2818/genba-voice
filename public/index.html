@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>現場ボイス - 造船現場の音声報告アプリ</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+  <div id="app">
+    <!-- ログイン画面 -->
+    <div id="login-screen" class="screen">
+      <div class="container">
+        <h1>現場ボイス</h1>
+        <div class="form-group">
+          <label for="username">名前を入力</label>
+          <input type="text" id="username" placeholder="名前を入力">
+        </div>
+        <button id="login-btn" class="primary-btn">ログイン</button>
+      </div>
+    </div>
+
+    <!-- フィード画面 -->
+    <div id="feed-screen" class="screen hidden">
+      <div class="container">
+        <header>
+          <h1>現場問題報告</h1>
+        </header>
+        <div class="reporter-section">
+          <label for="reporter">報告者</label>
+          <div id="reporter" class="info-display"></div>
+        </div>
+        
+        <div class="ship-section">
+          <label for="ship-select">shipナンバー</label>
+          <div class="recent-ships">
+            <div id="recent-ships-container"></div>
+            <input type="text" id="ship-input" placeholder="手動入力">
+          </div>
+        </div>
+
+        <div class="record-section">
+          <button id="record-btn" class="action-btn">
+            <i class="fas fa-microphone"></i> 音声報告開始
+          </button>
+          <div id="status" class="status"></div>
+        </div>
+
+        <div id="report-container">
+          <div class="report-section">
+            <h3>音声報告方法</h3>
+            <p><strong>ブロック名は○○○です、と最初に述べてから、不具合点を具体的に報告してください。</strong></p>
+            <p>例: 「ブロック名はB5です。配管のサポートが外れており、接続部が破損しています」</p>
+          </div>
+
+          <div class="result-section">
+            <div class="form-group">
+              <label for="block-input">ブロック</label>
+              <div id="block-candidate" class="block-candidate"></div>
+              <input type="text" id="block-input" placeholder="ブロック名">
+            </div>
+            
+            <div class="form-group">
+              <label for="summary">不具合内容</label>
+              <textarea id="summary"></textarea>
+            </div>
+
+            <div class="action-buttons">
+              <button id="submit-btn" class="primary-btn">確定</button>
+              <button id="cancel-btn" class="secondary-btn">キャンセル</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- レコード画面（詳細表示） -->
+    <div id="record-detail-screen" class="screen hidden">
+      <div class="container">
+        <header>
+          <button id="back-btn" class="icon-btn"><i class="fas fa-arrow-left"></i></button>
+          <h1>レコード</h1>
+        </header>
+        
+        <div class="detail-grid">
+          <div class="detail-row">
+            <div class="detail-label">発生日</div>
+            <div id="record-date" class="detail-value"></div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">報告者</div>
+            <div id="record-reporter" class="detail-value"></div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">shipNO</div>
+            <div id="record-ship" class="detail-value"></div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">ブロック</div>
+            <div id="record-block" class="detail-value"></div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">内容</div>
+            <div id="record-content" class="detail-value"></div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">原因</div>
+            <div id="record-cause" class="detail-value"></div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">対応状況</div>
+            <div id="record-status" class="detail-value"></div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-label">担当者</div>
+            <div id="record-assigned" class="detail-value"></div>
+          </div>
+        </div>
+        
+        <div class="detail-actions">
+          <button id="edit-btn" class="primary-btn">編集</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

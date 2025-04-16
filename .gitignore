@@ -1,0 +1,10 @@
+# 環境変数ファイル（APIキーなどの機密情報を含む）
+.env
+
+# 一時ファイル
+/uploads/*
+/node_modules
+.DS_Store
+
+# ログファイル
+*.log
