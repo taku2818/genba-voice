@@ -14,8 +14,8 @@ const getBaseUrl = () => {
 // APIのベースURL
 const API_BASE_URL = getBaseUrl();
 
-// API関数をエクスポート
-const API = {
+// API関数をエクスポート（グローバルスコープで利用できるようにwindowに割り当て）
+window.API = {
   // APIエンドポイントURLを生成
   endpoint: (path) => `${API_BASE_URL}${path}`,
   

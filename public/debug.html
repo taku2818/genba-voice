@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ブロック入力テスト</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-container {
+            margin-bottom: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        .block-tag {
+            display: inline-block;
+            background-color: #f1f3f5;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 8px 16px;
+            margin: 5px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .block-tag.selected {
+            background-color: #339af0;
+            border-color: #1971c2;
+            color: white;
+        }
+        .test-button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+        }
+        #block-candidate {
+            margin: 10px 0;
+        }
+        .log-container {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            margin-top: 20px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 5px;
+        }
+        .success {
+            color: green;
+        }
+        .error {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>ブロック入力テスト</h1>
+    <p>このページはブロック入力欄の問題を切り分けるためのテストページです。</p>
+
+    <div class="test-container">
+        <h2>1. 基本的な入力テスト</h2>
+        <label for="block-input">ブロック:</label>
+        <input type="text" id="block-input" name="block" placeholder="ブロック名">
+        <div id="block-candidate"></div>
+        <button id="test-set-value" class="test-button">値を直接設定する (S5)</button>
+        <button id="test-set-value-event" class="test-button">値の設定 + イベント発火 (S13)</button>
+        <button id="test-show-candidates" class="test-button">候補を表示する</button>
+    </div>
+
+    <div class="test-container">
+        <h2>2. 現在の入力値</h2>
+        <div id="current-value">現在の値: <span id="value-display">(未設定)</span></div>
+        <button id="test-get-value" class="test-button">現在の値を取得して表示</button>
+    </div>
+
+    <div class="log-container">
+        <h3>実行ログ</h3>
+        <div id="log-output"></div>
+    </div>
+
+    <script>
+        // ログ出力関数
+        function log(message, type = 'info') {
+            const logOutput = document.getElementById('log-output');
+            const logEntry = document.createElement('div');
+            logEntry.classList.add('log-entry', type);
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logOutput.prepend(logEntry);
+        }
+
+        // 値の取得と表示
+        function updateValueDisplay() {
+            const blockInput = document.getElementById('block-input');
+            const valueDisplay = document.getElementById('value-display');
+            const value = blockInput ? blockInput.value : '取得できません';
+            valueDisplay.textContent = value || '(空)';
+            log(`現在の値を取得: "${value}"`);
+            return value;
+        }
+
+        // イベントリスナーの設定
+        document.addEventListener('DOMContentLoaded', function() {
+            // 要素の取得
+            const blockInput = document.getElementById('block-input');
+            const blockCandidate = document.getElementById('block-candidate');
+            
+            // 入力値の変更検知
+            blockInput.addEventListener('input', function(e) {
+                log(`input イベント発生: ${e.target.value}`);
+                updateValueDisplay();
+            });
+            
+            blockInput.addEventListener('change', function(e) {
+                log(`change イベント発生: ${e.target.value}`);
+                updateValueDisplay();
+            });
+            
+            // テスト1: 値を直接設定
+            document.getElementById('test-set-value').addEventListener('click', function() {
+                try {
+                    log('値を直接設定: "S5"');
+                    blockInput.value = 'S5';
+                    updateValueDisplay();
+                } catch(e) {
+                    log(`エラー発生: ${e.message}`, 'error');
+                }
+            });
+            
+            // テスト2: 値を設定してイベント発火
+            document.getElementById('test-set-value-event').addEventListener('click', function() {
+                try {
+                    log('値を設定 + イベント発火: "S13"');
+                    blockInput.value = 'S13';
+                    blockInput.focus();
+                    
+                    // input イベント発火
+                    const inputEvent = new Event('input', { bubbles: true });
+                    blockInput.dispatchEvent(inputEvent);
+                    
+                    // change イベント発火
+                    const changeEvent = new Event('change', { bubbles: true });
+                    blockInput.dispatchEvent(changeEvent);
+                    
+                    updateValueDisplay();
+                } catch(e) {
+                    log(`エラー発生: ${e.message}`, 'error');
+                }
+            });
+            
+            // テスト3: 候補表示テスト
+            document.getElementById('test-show-candidates').addEventListener('click', function() {
+                try {
+                    const blockName = updateValueDisplay() || 'S5';
+                    log(`候補表示テスト - ブロック名: ${blockName}`);
+                    
+                    // 候補表示エリアをクリア
+                    blockCandidate.innerHTML = '';
+                    
+                    // メインのブロックタグ作成
+                    const mainBlockTag = document.createElement('div');
+                    mainBlockTag.classList.add('block-tag', 'selected');
+                    mainBlockTag.textContent = blockName;
+                    mainBlockTag.addEventListener('click', () => {
+                        blockInput.value = blockName;
+                        blockInput.focus();
+                        blockInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        updateValueDisplay();
+                    });
+                    blockCandidate.appendChild(mainBlockTag);
+                    
+                    // 類似ブロック候補を作成（例示）
+                    const similarBlocks = ['S1', 'S2', 'S3'];
+                    similarBlocks.forEach(block => {
+                        const blockTag = document.createElement('div');
+                        blockTag.classList.add('block-tag');
+                        blockTag.textContent = block;
+                        blockTag.addEventListener('click', () => {
+                            document.querySelectorAll('.block-tag').forEach(tag => 
+                                tag.classList.remove('selected')
+                            );
+                            blockTag.classList.add('selected');
+                            
+                            blockInput.value = block;
+                            blockInput.focus();
+                            blockInput.dispatchEvent(new Event('input', { bubbles: true }));
+                            blockInput.dispatchEvent(new Event('change', { bubbles: true }));
+                            
+                            log(`ブロックタグがクリックされました: ${block}`, 'success');
+                            updateValueDisplay();
+                        });
+                        blockCandidate.appendChild(blockTag);
+                    });
+                    
+                    log('候補表示完了', 'success');
+                } catch(e) {
+                    log(`エラー発生: ${e.message}`, 'error');
+                }
+            });
+            
+            // 現在の値を取得して表示
+            document.getElementById('test-get-value').addEventListener('click', updateValueDisplay);
+            
+            // 初期値の表示
+            updateValueDisplay();
+            log('テストページの準備完了', 'success');
+        });
+    </script>
+</body>
+</html>

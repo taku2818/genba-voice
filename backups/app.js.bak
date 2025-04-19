@@ -1,7 +1,5 @@
 // 現場ボイス アプリケーション
-console.log('【基本デバッグ】app.js 読み込み開始');
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('【基本デバッグ】DOMContentLoaded イベント発火');
   // DOM要素
   const loginScreen = document.getElementById('login-screen');
   const feedScreen = document.getElementById('feed-screen');
@@ -18,7 +16,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const recentShipsContainer = document.getElementById('recent-ships-container');
   const reportContainer = document.getElementById('report-container');
   const submitBtn = document.getElementById('submit-btn');
-  console.log('【基本デバッグ】submitBtn要素:', submitBtn);
   const cancelBtn = document.getElementById('cancel-btn');
   const backBtn = document.getElementById('back-btn');
   const downloadBtn = document.getElementById('download-btn');
@@ -192,10 +189,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 音声処理 - シンプル化バージョン
+  // 音声処理
   async function processAudio(audioBlob) {
     try {
-      // 録音データが極端に小さい場合（無音など）はエラーメッセージを表示
+      console.log('音声処理開始 - 修正版');
+      // 録音データが極端に小さい場合（無音など）はエラーメッセージを表示して処理を中断
       if (audioBlob.size < 1000) { // 1KB未満は実質的に無音と判断
         statusDisplay.textContent = '録音データがありません。もう一度お試しください。';
         recordBtn.innerHTML = '<i class="fas fa-microphone"></i> 音声報告開始';
@@ -203,65 +201,122 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      // 1. 文字起こし処理
       const formData = new FormData();
       formData.append('audio', audioBlob);
+
+      // Whisper APIで文字起こし
       const { transcript } = await API.upload('/api/whisper', formData);
       console.log('文字起こし結果:', transcript);
 
-      // 2. 要約とブロック名抽出
+      // APIオブジェクトのAPI.upload関数内でエラーハンドリング済み
+
+      // ChatGPTで要約とブロック推定 - 新しいAPI形式
+      console.log('要約API呼び出し - データ:', { text: transcript, blocks: blockList });
       const result = await API.post('/api/summarize', { 
         text: transcript, 
         blocks: blockList 
       });
       
-      // 3. 結果を取得
-      const blockName = result.blockName || '';
-      const summary = result.summary || '';
+      // レスポンスの構造を確認
+      console.log('要約APIレスポンス:', result);
       
-      // 4. UIに表示
-      blockInput.value = blockName;
-      summaryDisplay.value = summary;
+      // 細分化された形式で値を取得
+      const { summary, blockName } = result;
+      console.log('要約結果:', summary);
+      console.log('抽出されたブロック名:', blockName);
       
-      // 5. ブロック候補表示
-      displayBlockCandidates(blockName);
+      // APIからの値が存在しない場合だけフォールバック
+      const finalBlockName = blockName || '';
+      const finalSummary = summary || '';
       
-      // 6. 入力欄のイベントを発生させる
-      // 他のスクリプトが値の変更を検知できるようにする
-      const elements = [blockInput, summaryDisplay];
-      elements.forEach(el => {
-        if (el) {
-          el.dispatchEvent(new Event('input', { bubbles: true }));
-          el.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-      });
+      console.log('最終的なブロック名:', finalBlockName);
+      console.log('最終的な要約:', finalSummary);
       
-      // 7. DirectInputユーティリティが存在する場合は使用
-      if (window.DirectInput) {
-        try {
-          window.DirectInput.setBlockValue(blockName);
-          window.DirectInput.setSummaryText(summary);
-        } catch (error) {
-          console.error('DirectInputエラー:', error);
-        }
+      // クロススクリプトエラーの緊急対策として、グローバル変数に保存
+      window.lastTranscript = transcript || '';
+      window.lastSummary = finalSummary;
+      window.lastBlockName = finalBlockName;
+      console.log('データをグローバル変数に保存しました');
+
+      // 新しいAPI形式では、要約にブロック名が含まれないようになっているはずだが
+      // 安全策としてブロック名が要約内に存在する場合の処理を追加
+      let cleanSummary = finalSummary;
+      if (finalBlockName && cleanSummary.includes(finalBlockName)) {
+        console.log(`要約内にブロック名 "${finalBlockName}" が含まれているため、除去します`);
+        
+        // 単純にブロック名自体を除去 - 単語境界に注意
+        const blockNamePattern = new RegExp(`(^|\\s)${finalBlockName}(\\s|$|\\.|,)`, 'gi');
+        cleanSummary = cleanSummary.replace(blockNamePattern, ' ');
+        // 空白と余分な記号を整理
+        cleanSummary = cleanSummary.trim().replace(/^[\s,.:;。、]+/, '');
+        
+        console.log(`ブロック名除去後の不具合内容: ${cleanSummary}`);
       }
       
-      // 8. レポートデータを保存
-      window.reportData = { blockName, issueContent: summary };
+      // 結果をレポートデータに保存
+      window.reportData = {
+        blockName: finalBlockName,
+        issueContent: cleanSummary || finalSummary
+      };
       
-      // 9. UI状態を更新
-      statusDisplay.textContent = '音声処理完了';
-      recordBtn.innerHTML = '<i class="fas fa-microphone"></i> 音声報告開始';
-      recordBtn.classList.remove('recording');
+      // その後に表示処理を行う
+      // ブロック名を自動入力する前にフィールドに直接値を設定
+      blockInput.value = finalBlockName;
       
-      return { transcript, summary, blockName };
+      // ブロック名の表示を行う
+      displayBlockCandidates(finalBlockName);
       
+      // 入力欄に値を確実に設定する
+      // 1. 要約を設定
+      summaryDisplay.value = cleanSummary;
+      
+      // 2. 直接プロパティを設定
+      try {
+        // イベント発生
+        blockInput.dispatchEvent(new Event('input', { bubbles: true }));
+        blockInput.dispatchEvent(new Event('change', { bubbles: true }));
+        summaryDisplay.dispatchEvent(new Event('input', { bubbles: true }));
+        summaryDisplay.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log('入力欄にイベントを発生させました');
+        
+        // 3. DirectInputユーティリティがあれば使用
+        if (window.DirectInput) {
+          try {
+            window.DirectInput.setBlockValue(finalBlockName);
+            window.DirectInput.setSummaryText(cleanSummary || finalSummary);
+            console.log('DirectInputユーティリティを使用しました');
+          } catch (utilError) {
+            console.error('DirectInputユーティリティエラー:', utilError);
+          }
+        }
+        
+        // 4. 適用後の結果を確認
+        console.log('入力欄適用後の値: ', {
+          block: blockInput.value,
+          summary: summaryDisplay.value
+        });
+      } catch (inputError) {
+        console.error('入力欄設定エラー:', inputError);
+      }
+      
+      // レポートコンテナを表示
+      reportContainer.classList.remove('hidden');
+      statusDisplay.textContent = '完了しました！';
+
+      // 入力欄にフォーカスして確認を促す
+      setTimeout(() => {
+        try {
+          // 200ms後に再設定して確認
+          blockInput.value = blockName || '';
+          summaryDisplay.value = cleanSummary || '';
+          blockInput.focus();
+        } catch (focusError) {
+          console.error('フォーカスエラー:', focusError);
+        }
+      }, 200);
     } catch (error) {
       console.error('音声処理エラー:', error);
-      statusDisplay.textContent = '音声処理中にエラーが発生しました';
-      recordBtn.innerHTML = '<i class="fas fa-microphone"></i> 音声報告開始';
-      recordBtn.classList.remove('recording');
-      return null;
+      statusDisplay.textContent = 'エラーが発生しました: ' + error.message;
     }
   }
 
@@ -329,37 +384,30 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // 画像・音声・API連携付きの報告送信処理
-  console.log('【基本デバッグ】submitBtnイベントリスナー設定');
   submitBtn.addEventListener('click', async () => {
-    console.log('【デバッグ】確定ボタンがクリックされました');
+    const shipNo = shipInput.value.trim();
+    const block = blockInput.value.trim();
+    const content = summaryDisplay.value.trim();
+    const reporter = reporterDisplay.textContent || '未設定';
+    const imageInput = document.getElementById('imageInput');
+    const imageFile = imageInput && imageInput.files[0];
+    const audioBlob = window.latestAudioBlob || null; // 録音停止時にwindow.latestAudioBlobへ保存する仕様にする
+
+    if (!shipNo || !block || !content) {
+      alert('すべての項目を入力してください');
+      return;
+    }
+    // 画像と音声は任意に変更
+    // if (!imageFile) {
+    //  alert('画像を添付してください');
+    //  return;
+    // }
+    // if (!audioBlob) {
+    //  alert('音声を録音してください');
+    //  return;
+    // }
+
     try {
-      const shipNo = shipInput.value.trim();
-      const block = blockInput.value.trim();
-      const content = summaryDisplay.value.trim();
-      const reporter = reporterDisplay.textContent || '未設定';
-      const imageInput = document.getElementById('imageInput');
-      const imageFile = imageInput && imageInput.files[0];
-      const audioBlob = window.latestAudioBlob || null; // 録音停止時にwindow.latestAudioBlobへ保存する仕様にする
-      
-      console.log('【デバッグ】入力データ確認:', { shipNo, block, content, reporter, imageFile: imageFile ? imageFile.name : null });
-
-      if (!shipNo || !block || !content) {
-        console.log('【デバッグ】必須入力チェック失敗:', { shipNo, block, content });
-        alert('すべての項目を入力してください');
-        return;
-      }
-      console.log('【デバッグ】入力チェック成功');
-      // 画像と音声は任意に変更
-      // if (!imageFile) {
-      //  alert('画像を添付してください');
-      //  return;
-      // }
-      // if (!audioBlob) {
-      //  alert('音声を録音してください');
-      //  return;
-      // }
-
-      console.log('【デバッグ】送信処理開始');
       let imageUrl = null;
       
       // 画像がある場合のみアップロード処理を実行
@@ -449,24 +497,14 @@ document.addEventListener('DOMContentLoaded', () => {
         image_url: finalImageUrl,
         // 音声データは保存しない（必要ない）
       };
-      console.log('【デバッグ】Google Sheets送信データ:', reportData);
-      
-      try {
-        console.log('【デバッグ】/api/save-to-sheets API呼び出し開始');
-        const sheetsRes = await fetch("/api/save-to-sheets", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(reportData)
-        });
-        console.log('【デバッグ】APIレスポンス受信:', sheetsRes.status, sheetsRes.statusText);
-        const sheetsResult = await sheetsRes.json();
-        console.log('【デバッグ】APIレスポンスJSON:', sheetsResult);
-        statusDisplay.textContent = "報告が送信されました！";
-        alert("報告が送信されました！");
-      } catch (apiError) {
-        console.error('【デバッグ】APIエラー:', apiError);
-        throw apiError;
-      }
+      const sheetsRes = await fetch("/api/save-to-sheets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(reportData)
+      });
+      const sheetsResult = await sheetsRes.json();
+      statusDisplay.textContent = "報告が送信されました！";
+      alert("報告が送信されました！");
       // フォームリセット
       shipInput.value = '';
       blockInput.value = '';
@@ -477,7 +515,6 @@ document.addEventListener('DOMContentLoaded', () => {
       reportContainer.classList.add('hidden');
       document.querySelectorAll('.ship-btn').forEach(btn => btn.classList.remove('selected'));
     } catch (e) {
-      console.error('【デバッグ】送信処理エラー:', e);
       statusDisplay.textContent = '送信エラー';
       alert('送信中にエラーが発生しました: ' + e.message);
       console.error(e);

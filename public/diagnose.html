@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ブロック入力診断</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .info {
+            background-color: #e1f5fe;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background-color: #ffebee;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success {
+            background-color: #e8f5e9;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        #log-container {
+            height: 200px;
+            overflow-y: auto;
+            background-color: #f5f5f5;
+            padding: 10px;
+            font-family: monospace;
+            border: 1px solid #ccc;
+            margin-top: 15px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .block-tag {
+            display: inline-block;
+            background-color: #f1f3f5;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            padding: 8px 16px;
+            margin: 5px;
+            font-size: 1.2em;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .block-tag.selected {
+            background-color: #339af0;
+            border-color: #1971c2;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>ブロック入力診断ツール</h1>
+    <p>問題を切り分けるための診断ツールです。各セクションで異なる側面をテストし、どこに問題があるか特定します。</p>
+    
+    <div class="section">
+        <h2>1. サーバーからのデータ検証</h2>
+        <p>サーバーから受け取ったデータを検証します。特にブロック名が正しく抽出されているかを確認します。</p>
+        <div class="info">
+            テストデータ: <code>{ "transcript": "ブロック名はS5です。現場では特に問題ありませんでした。", "summary": "現場報告: ブロック名S5で問題なし", "block": "S5" }</code>
+        </div>
+        <button id="test-server-data" class="button">サーバーAPIをテスト</button>
+        <div id="server-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>2. クライアント側入力テスト</h2>
+        <p>ブロック入力欄へのデータ設定をテストし、問題がクライアント側にあるか確認します。</p>
+        <label for="test-block-input">テスト用ブロック入力欄:</label>
+        <input type="text" id="test-block-input" name="block" placeholder="ブロック名" value="">
+        <div id="test-block-candidate"></div>
+        <div>
+            <button id="set-value-s5" class="button">値を設定 (S5)</button>
+            <button id="force-value-s13" class="button">強制設定 (S13)</button>
+            <button id="show-candidates" class="button">候補表示</button>
+        </div>
+        <div id="client-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>3. DOM要素検査</h2>
+        <p>ページ上のブロック入力欄要素を検査し、正しく存在するか確認します。</p>
+        <button id="inspect-elements" class="button">要素検査</button>
+        <div id="element-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>4. 入力欄の値の変更検知テスト</h2>
+        <p>入力欄の値の変更に関するイベントリスナーをテストします。</p>
+        <button id="test-event-listeners" class="button">イベントリスナーテスト</button>
+        <div id="event-result"></div>
+    </div>
+    
+    <div class="section">
+        <h2>5. 総合フロー診断</h2>
+        <p>要約からブロック名抽出 → 入力欄設定 → 候補表示の全フローをテストします。</p>
+        <textarea id="test-summary" rows="4" style="width: 100%">ブロック名はS5です。現場では特に問題ありませんでした。</textarea>
+        <button id="test-full-flow" class="button">総合フローテスト</button>
+        <div id="flow-result"></div>
+    </div>
+    
+    <div id="log-container">
+        <h3>実行ログ</h3>
+        <div id="log-output"></div>
+    </div>
+
+    <script>
+        // ログ出力関数
+        function log(message, type = 'info') {
+            const logOutput = document.getElementById('log-output');
+            const logEntry = document.createElement('div');
+            logEntry.classList.add(type);
+            logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logOutput.prepend(logEntry);
+        }
+        
+        // 結果表示関数
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.className = type;
+            element.innerHTML = message;
+        }
+        
+        // 完全なブロックリスト
+        const COMPLETE_BLOCK_LIST = [
+            "BAA", "BOA", "BAF", "BOF", "B1", "B2", "B3", "B4", "B5", "B6", "B7", "B8", "B9", "B10", "B11", "B12",
+            "SA1", "SA1A", "SA1F", "SA2", "SA2C", "SA3", "SA3C",
+            "S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8", "S9", "S10", "S11", "S12", "S13",
+            "AP1", "AP2", "AH2", "AH3", "L1", "L2", "D1", "D2"
+        ];
+        
+        // テスト実行時のエラーハンドラー
+        function handleTestError(section, error) {
+            log(`エラー (${section}): ${error.message}`, 'error');
+            showResult(`${section}-result`, `テスト失敗: ${error.message}`, 'error');
+            console.error(`[${section}] エラー:`, error);
+        }
+        
+        // 1. サーバーAPI用のモックデータ
+        function mockServerAPI() {
+            return new Promise((resolve) => {
+                // サーバーからの応答をシミュレート
+                setTimeout(() => {
+                    resolve({
+                        transcript: "ブロック名はS5です。現場では特に問題ありませんでした。",
+                        summary: "現場報告: ブロック名S5で問題なし",
+                        block: "S5"
+                    });
+                }, 500);
+            });
+        }
+        
+        // 2. ブロック入力値の設定テスト
+        function setBlockInputValue(value, force = false) {
+            try {
+                const blockInput = document.getElementById('test-block-input');
+                if (!blockInput) {
+                    throw new Error('入力欄が見つかりません');
+                }
+                
+                log(`入力欄への値設定開始: "${value}" (強制: ${force ? 'はい' : 'いいえ'})`);
+                
+                // 元の値を記録
+                const originalValue = blockInput.value;
+                log(`元の値: "${originalValue}"`);
+                
+                // 通常の値設定
+                blockInput.value = value;
+                log(`値を設定後: "${blockInput.value}"`);
+                
+                // イベント発火
+                blockInput.dispatchEvent(new Event('input', { bubbles: true }));
+                blockInput.dispatchEvent(new Event('change', { bubbles: true }));
+                log(`イベント発火後: "${blockInput.value}"`);
+                
+                // 強制モードの場合の追加処理
+                if (force && typeof window.forceSetBlockInput === 'function') {
+                    window.forceSetBlockInput(value);
+                    log(`強制設定関数実行後: "${blockInput.value}"`);
+                }
+                
+                return blockInput.value === value;
+            } catch (error) {
+                handleTestError('client', error);
+                return false;
+            }
+        }
+        
+        // 3. ブロック候補表示関数
+        function displayBlockCandidates(blockName) {
+            try {
+                const blockCandidate = document.getElementById('test-block-candidate');
+                const blockInput = document.getElementById('test-block-input');
+                
+                if (!blockCandidate || !blockInput) {
+                    throw new Error('候補表示エリアまたは入力欄が見つかりません');
+                }
+                
+                // 候補表示エリアをクリア
+                blockCandidate.innerHTML = '';
+                log(`候補表示エリアをクリア`);
+                
+                // メインのブロックタグを作成
+                if (blockName) {
+                    const mainBlockTag = document.createElement('div');
+                    mainBlockTag.classList.add('block-tag', 'selected');
+                    mainBlockTag.textContent = blockName;
+                    mainBlockTag.addEventListener('click', () => {
+                        log(`メインタグ "${blockName}" がクリックされました`);
+                        blockInput.value = blockName;
+                        blockInput.focus();
+                        blockInput.dispatchEvent(new Event('input', { bubbles: true }));
+                    });
+                    blockCandidate.appendChild(mainBlockTag);
+                    log(`メインタグ "${blockName}" を追加しました`);
+                }
+                
+                // 類似ブロック候補を表示
+                if (blockName && blockName.length > 0) {
+                    const prefix = blockName.charAt(0);
+                    const similarBlocks = COMPLETE_BLOCK_LIST
+                        .filter(block => block !== blockName && block.startsWith(prefix))
+                        .slice(0, 3);
+                    
+                    log(`類似ブロック検索: "${prefix}"で始まるブロック ${similarBlocks.length}個見つかりました`);
+                    
+                    similarBlocks.forEach(block => {
+                        const blockTag = document.createElement('div');
+                        blockTag.classList.add('block-tag');
+                        blockTag.textContent = block;
+                        blockTag.addEventListener('click', () => {
+                            log(`候補タグ "${block}" がクリックされました`);
+                            document.querySelectorAll('.block-tag').forEach(tag => 
+                                tag.classList.remove('selected')
+                            );
+                            blockTag.classList.add('selected');
+                            blockInput.value = block;
+                            blockInput.focus();
+                            blockInput.dispatchEvent(new Event('input', { bubbles: true }));
+                        });
+                        blockCandidate.appendChild(blockTag);
+                    });
+                    
+                    log(`${similarBlocks.length}個の候補タグを追加しました`);
+                }
+                
+                return true;
+            } catch (error) {
+                handleTestError('client', error);
+                return false;
+            }
+        }
+        
+        // 4. DOM要素の検査
+        function inspectElements() {
+            try {
+                const result = { elements: [] };
+                
+                // ブロック入力欄の検索
+                const selectors = ['#block-input', 'input[name="block"]', '[id$="block-input"]'];
+                
+                selectors.forEach(selector => {
+                    const elements = document.querySelectorAll(selector);
+                    log(`セレクタ "${selector}" で ${elements.length}個の要素が見つかりました`);
+                    
+                    if (elements.length > 0) {
+                        Array.from(elements).forEach((el, index) => {
+                            const info = {
+                                selector,
+                                index,
+                                type: el.type || '不明',
+                                id: el.id || '(なし)',
+                                name: el.name || '(なし)',
+                                value: el.value || '(なし)',
+                                visibility: el.style.display === 'none' ? '非表示' : '表示'
+                            };
+                            log(`要素${index+1}: id=${info.id}, name=${info.name}, value=${info.value}`);
+                            result.elements.push(info);
+                        });
+                    }
+                });
+                
+                // 結果のテーブル形式表示
+                if (result.elements.length > 0) {
+                    let tableHTML = '<h3>見つかった入力要素</h3>';
+                    tableHTML += '<table><tr><th>セレクタ</th><th>インデックス</th><th>タイプ</th><th>ID</th><th>NAME</th><th>値</th><th>表示状態</th></tr>';
+                    
+                    result.elements.forEach(elem => {
+                        tableHTML += `<tr>
+                            <td>${elem.selector}</td>
+                            <td>${elem.index}</td>
+                            <td>${elem.type}</td>
+                            <td>${elem.id}</td>
+                            <td>${elem.name}</td>
+                            <td>${elem.value}</td>
+                            <td>${elem.visibility}</td>
+                        </tr>`;
+                    });
+                    
+                    tableHTML += '</table>';
+                    
+                    showResult('element-result', tableHTML, 'info');
+                    return result.elements.length;
+                } else {
+                    showResult('element-result', '入力要素が見つかりませんでした。これは問題の根本原因かもしれません。', 'error');
+                    return 0;
+                }
+            } catch (error) {
+                handleTestError('element', error);
+                return -1;
+            }
+        }
+        
+        // 5. イベントリスナーのテスト
+        function testEventListeners() {
+            try {
+                const blockInput = document.getElementById('test-block-input');
+                if (!blockInput) {
+                    throw new Error('入力欄が見つかりません');
+                }
+                
+                log('イベントリスナーテスト開始');
+                
+                // 元の値を保存
+                const originalValue = blockInput.value;
+                log(`元の値: "${originalValue}"`);
+                
+                // テスト用のイベントリスナー
+                let inputFired = false;
+                let changeFired = false;
+                
+                const inputHandler = () => {
+                    inputFired = true;
+                    log('inputイベントが検知されました');
+                };
+                
+                const changeHandler = () => {
+                    changeFired = true;
+                    log('changeイベントが検知されました');
+                };
+                
+                // イベントリスナーを追加
+                blockInput.addEventListener('input', inputHandler);
+                blockInput.addEventListener('change', changeHandler);
+                
+                // 値を変更してイベント発火をテスト
+                blockInput.value = 'T1';
+                log(`値を手動で設定: "T1"`);
+                
+                // イベントを発火
+                blockInput.dispatchEvent(new Event('input', { bubbles: true }));
+                blockInput.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                // イベントリスナーを削除
+                blockInput.removeEventListener('input', inputHandler);
+                blockInput.removeEventListener('change', changeHandler);
+                
+                // 結果表示
+                let resultHTML = '<h3>イベントリスナーテスト結果</h3>';
+                resultHTML += `<p>イベント発火: input=${inputFired ? '成功' : '失敗'}, change=${changeFired ? '成功' : '失敗'}</p>`;
+                resultHTML += `<p>最終値: "${blockInput.value}"</p>`;
+                
+                // 元の値に戻す
+                blockInput.value = originalValue;
+                
+                const success = inputFired && changeFired;
+                showResult('event-result', resultHTML, success ? 'success' : 'error');
+                
+                return success;
+            } catch (error) {
+                handleTestError('event', error);
+                return false;
+            }
+        }
+        
+        // 6. 総合フローテスト
+        function testFullFlow() {
+            try {
+                log('総合フローテスト開始');
+                
+                // 入力されたテスト用要約文からブロック名を抽出
+                const summary = document.getElementById('test-summary').value;
+                log(`テスト要約文: "${summary}"`);
+                
+                // 簡易的なブロック名抽出ロジック
+                let blockName = extractBlockName(summary);
+                log(`抽出されたブロック名: "${blockName || '(抽出できませんでした)'}"`);
+                
+                if (!blockName) {
+                    throw new Error('要約文からブロック名を抽出できませんでした');
+                }
+                
+                // ブロック名を入力欄に設定
+                const setSuccess = setBlockInputValue(blockName, true);
+                log(`入力欄への値設定: ${setSuccess ? '成功' : '失敗'}`);
+                
+                // ブロック候補を表示
+                const candidateSuccess = displayBlockCandidates(blockName);
+                log(`候補表示: ${candidateSuccess ? '成功' : '失敗'}`);
+                
+                // 結果表示
+                const success = setSuccess && candidateSuccess;
+                const resultHTML = `
+                    <h3>総合フローテスト結果</h3>
+                    <p>ブロック名抽出: <strong>${blockName}</strong> ✅</p>
+                    <p>入力欄への設定: ${setSuccess ? '✅ 成功' : '❌ 失敗'}</p>
+                    <p>候補表示: ${candidateSuccess ? '✅ 成功' : '❌ 失敗'}</p>
+                    <p>総合結果: ${success ? '✅ 全工程正常に完了' : '❌ 一部の工程で問題が発生'}</p>
+                `;
+                
+                showResult('flow-result', resultHTML, success ? 'success' : 'error');
+                return success;
+            } catch (error) {
+                handleTestError('flow', error);
+                return false;
+            }
+        }
+        
+        // 要約文からブロック名を抽出する簡易的な関数
+        function extractBlockName(summary) {
+            const blockRegex = /ブロック名は([A-Za-z0-9]+)です/;
+            const blockMatch = summary.match(blockRegex);
+            
+            if (blockMatch && blockMatch[1]) {
+                // 直接マッチした場合
+                return blockMatch[1];
+            }
+            
+            // 単語単位でブロック名っぽいものを探す
+            const words = summary.split(/[\s,.。　:：]/);
+            for (const word of words) {
+                // ブロック名の形式に一致するものを探す
+                // 例: S5, B10, SA1など
+                if (/^[SB][A-Z]?[0-9]+[A-Z]?$/.test(word)) {
+                    return word;
+                }
+            }
+            
+            // ブロックリストに含まれる単語を探す
+            for (const word of words) {
+                if (COMPLETE_BLOCK_LIST.includes(word)) {
+                    return word;
+                }
+            }
+            
+            return null;
+        }
+        
+        // イベントリスナーの設定
+        document.addEventListener('DOMContentLoaded', () => {
+            log('診断ページが読み込まれました');
+            
+            // 1. サーバーAPIテスト
+            document.getElementById('test-server-data').addEventListener('click', async () => {
+                try {
+                    log('サーバーAPIテスト開始');
+                    showResult('server-result', 'リクエスト中...', 'info');
+                    
+                    const data = await mockServerAPI();
+                    log(`サーバーからの応答: ${JSON.stringify(data)}`);
+                    
+                    const resultHTML = `
+                        <h3>サーバーAPIテスト結果</h3>
+                        <p>トランスクリプト: "${data.transcript}"</p>
+                        <p>要約: "${data.summary}"</p>
+                        <p>ブロック名: <strong>${data.block || '(なし)'}</strong></p>
+                        <p>結果: ${data.block ? '✅ ブロック名抽出成功' : '❌ ブロック名なし'}</p>
+                    `;
+                    
+                    showResult('server-result', resultHTML, data.block ? 'success' : 'error');
+                } catch (error) {
+                    handleTestError('server', error);
+                }
+            });
+            
+            // 2. クライアント側入力テスト
+            document.getElementById('set-value-s5').addEventListener('click', () => {
+                const success = setBlockInputValue('S5', false);
+                showResult('client-result', `値の設定: ${success ? '✅ 成功' : '❌ 失敗'}`, success ? 'success' : 'error');
+            });
+            
+            document.getElementById('force-value-s13').addEventListener('click', () => {
+                const success = setBlockInputValue('S13', true);
+                showResult('client-result', `強制値設定: ${success ? '✅ 成功' : '❌ 失敗'}`, success ? 'success' : 'error');
+            });
+            
+            document.getElementById('show-candidates').addEventListener('click', () => {
+                const blockInput = document.getElementById('test-block-input');
+                const value = blockInput ? blockInput.value : '';
+                const valueToUse = value || 'S5'; // 値がなければS5をデフォルト使用
+                
+                const success = displayBlockCandidates(valueToUse);
+                showResult('client-result', `候補表示: ${success ? '✅ 成功' : '❌ 失敗'}`, success ? 'success' : 'error');
+            });
+            
+            // 3. DOM要素検査
+            document.getElementById('inspect-elements').addEventListener('click', () => {
+                const count = inspectElements();
+                if (count > 0) {
+                    log(`検査完了: ${count}個の入力要素が見つかりました`);
+                } else if (count === 0) {
+                    log('検査完了: 入力要素が見つかりませんでした', 'error');
+                }
+            });
+            
+            // 4. イベントリスナーテスト
+            document.getElementById('test-event-listeners').addEventListener('click', () => {
+                const success = testEventListeners();
+                log(`イベントリスナーテスト完了: ${success ? '成功' : '失敗'}`);
+            });
+            
+            // 5. 総合フローテスト
+            document.getElementById('test-full-flow').addEventListener('click', () => {
+                const success = testFullFlow();
+                log(`総合フローテスト完了: ${success ? '成功' : '失敗'}`);
+            });
+            
+            // テスト用入力欄のイベントリスナー
+            const testInput = document.getElementById('test-block-input');
+            if (testInput) {
+                testInput.addEventListener('input', (e) => {
+                    log(`テスト入力欄 input イベント: "${e.target.value}"`);
+                });
+                
+                testInput.addEventListener('change', (e) => {
+                    log(`テスト入力欄 change イベント: "${e.target.value}"`);
+                });
+            }
+            
+            // 初期検査の自動実行
+            setTimeout(inspectElements, 1000);
+        });
+    </script>
+</body>
+</html>

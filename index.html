@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>現場ボイス報告</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <h1>現場ボイス報告</h1>
+
+    <div id="report-form">
+        <div>
+            <label for="reporter">報告者名:</label>
+            <input type="text" id="reporter" name="reporter" required>
+        </div>
+        <div>
+            <label for="shipNO">船体番号 (3桁):</label>
+            <input type="text" id="shipNO" name="shipNO" pattern="\d{3}" title="半角数字3桁で入力してください" required>
+        </div>
+        <div>
+            <label for="block">ブロック名 (例: B7):</label>
+            <input type="text" id="block" name="block" required>
+        </div>
+
+        <h2>画像添付</h2>
+        <input type="file" id="imageInput" accept="image/*" capture="environment">
+        <img id="imagePreview" src="#" alt="画像プレビュー" style="max-width: 300px; margin-top: 10px; display: none;"/>
+
+        <h2>音声報告</h2>
+        <button id="recordButton">録音開始</button>
+        <p id="recordingStatus">停止中</p>
+        <audio id="audioPlayback" controls></audio>
+
+        <button id="submitButton" disabled>報告を送信</button>
+        <p id="statusMessage"></p>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
