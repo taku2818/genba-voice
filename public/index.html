@@ -45,7 +45,7 @@
         <div class="image-section">
           <label for="imageInput">画像添付</label>
           <div class="image-input-container">
-            <input type="file" id="imageInput" accept="image/*" capture="environment">
+            <input type="file" id="imageInput" accept="image/*" capture="camera">
             <div class="image-preview-container">
               <img id="imagePreview" src="#" alt="画像プレビュー" style="max-width: 100%; max-height: 200px; margin-top: 10px; display: none;"/>
             </div>
@@ -83,7 +83,20 @@
             <div class="action-buttons">
               <button id="submit-btn" class="primary-btn">確定</button>
               <button id="cancel-btn" class="secondary-btn">キャンセル</button>
+              <div id="submit-status" class="submit-status"></div>
             </div>
+            <style>
+              .submit-status {
+                margin-top: 10px;
+                padding: 8px;
+                text-align: center;
+                font-weight: bold;
+                color: #4CAF50;
+                background-color: #f9f9f9;
+                border-radius: 4px;
+                min-height: 20px;
+              }
+            </style>
           </div>
         </div>
       </div>

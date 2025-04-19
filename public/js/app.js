@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const reporterDisplay = document.getElementById('reporter');
   const recordBtn = document.getElementById('record-btn');
   const statusDisplay = document.getElementById('status');
+  const submitStatus = document.getElementById('submit-status');
   const summaryDisplay = document.getElementById('summary');
   const blockCandidate = document.getElementById('block-candidate');
   const blockInput = document.getElementById('block-input');
@@ -332,6 +333,10 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('【基本デバッグ】submitBtnイベントリスナー設定');
   submitBtn.addEventListener('click', async () => {
     console.log('【デバッグ】確定ボタンがクリックされました');
+    
+    // 確定ボタンを即座に無効化して重複クリック防止
+    submitBtn.disabled = true;
+    submitBtn.textContent = '送信中...';
     try {
       const shipNo = shipInput.value.trim();
       const block = blockInput.value.trim();
@@ -365,6 +370,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // 画像がある場合のみアップロード処理を実行
       if (imageFile) {
         statusDisplay.textContent = '画像アップロード中...';
+        submitStatus.textContent = '画像アップロード中...';
         // 画像ファイル名リネーム
         const date = new Date().toISOString().slice(0,10).replace(/-/g, "");
         const filename = `report_${date}_ship${shipNo}_block${block}_${reporter}.jpg`;
@@ -430,6 +436,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       statusDisplay.textContent = 'Google Sheetsへ送信中...';
+      submitStatus.textContent = 'Google Sheetsへ送信中...';
       // 画像URLをログ出力して確認
       console.log('画像URL確認:', imageUrl);
       console.log('グローバル変数の画像URL:', window.lastUploadedImageUrl);
@@ -462,6 +469,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sheetsResult = await sheetsRes.json();
         console.log('【デバッグ】APIレスポンスJSON:', sheetsResult);
         statusDisplay.textContent = "報告が送信されました！";
+      submitStatus.textContent = "報告が送信されました！";
         alert("報告が送信されました！");
       } catch (apiError) {
         console.error('【デバッグ】APIエラー:', apiError);
@@ -476,11 +484,26 @@ document.addEventListener('DOMContentLoaded', () => {
       if(document.getElementById('imagePreview')) document.getElementById('imagePreview').style.display = 'none';
       reportContainer.classList.add('hidden');
       document.querySelectorAll('.ship-btn').forEach(btn => btn.classList.remove('selected'));
+      
+      // 処理完了後に確定ボタンを再び有効化
+      setTimeout(() => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '確定';
+        // 2秒後にステータスメッセージをクリア
+        setTimeout(() => {
+          submitStatus.textContent = '';
+        }, 2000);
+      }, 1000); // 1秒後に有効化
     } catch (e) {
       console.error('【デバッグ】送信処理エラー:', e);
       statusDisplay.textContent = '送信エラー';
+      submitStatus.textContent = '送信エラー';
       alert('送信中にエラーが発生しました: ' + e.message);
       console.error(e);
+      
+      // エラー時にも確定ボタンを再び有効化
+      submitBtn.disabled = false;
+      submitBtn.textContent = '確定';
     }
   });
 
