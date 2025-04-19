@@ -27,6 +27,29 @@ document.addEventListener('DOMContentLoaded', () => {
   // CSVデータを保持する配列
   let csvData = [];
 
+  // 画像操作用ボタンの参照
+  const selectImageBtn = document.getElementById('selectImageBtn');
+  const takeCameraBtn = document.getElementById('takeCameraBtn');
+  const imageInput = document.getElementById('imageInput');
+  
+  // カメラボタンの設定
+  if (takeCameraBtn && imageInput) {
+    takeCameraBtn.addEventListener('click', () => {
+      // カメラを起動する
+      imageInput.setAttribute('capture', 'camera');
+      imageInput.click();
+    });
+  }
+  
+  // ギャラリー選択ボタンの設定
+  if (selectImageBtn && imageInput) {
+    selectImageBtn.addEventListener('click', () => {
+      // キャプチャ属性を削除して通常のファイル選択にする
+      imageInput.removeAttribute('capture');
+      imageInput.click();
+    });
+  }
+
   // 状態管理
   let mediaRecorder;
   let audioChunks = [];
@@ -308,21 +331,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const imageInputElem = document.getElementById('imageInput');
   const imagePreviewElem = document.getElementById('imagePreview');
   if (imageInputElem && imagePreviewElem) {
-    imageInputElem.addEventListener('change', (event) => {
-      const file = event.target.files[0];
+    // 画像プレビュー共通処理
+    const handleImageSelection = (file) => {
       if (file) {
+        // プレビュー表示
         const reader = new FileReader();
-        reader.onload = (e) => {
-          imagePreviewElem.src = e.target.result;
-          imagePreviewElem.style.display = 'block';
-          
-          // 選択されたファイルを保存
-          window.selectedImageFile = file;
-          console.log('画像が選択されました:', file.name, file.type, file.size);
+        reader.onload = function(e) {
+          const imagePreview = document.getElementById('imagePreview');
+          if (imagePreview) {
+            imagePreview.src = e.target.result;
+            imagePreview.style.display = 'block';
+          }
         };
         reader.readAsDataURL(file);
-      } else {
-        imagePreviewElem.style.display = 'none';
         imagePreviewElem.src = '#';
         window.selectedImageFile = null;
       }
@@ -343,6 +364,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const content = summaryDisplay.value.trim();
       const reporter = reporterDisplay.textContent || '未設定';
       const imageInput = document.getElementById('imageInput');
+  const selectImageBtn = document.getElementById('selectImageBtn');
+  const takeCameraBtn = document.getElementById('takeCameraBtn');
       const imageFile = imageInput && imageInput.files[0];
       const audioBlob = window.latestAudioBlob || null; // 録音停止時にwindow.latestAudioBlobへ保存する仕様にする
       
@@ -485,21 +508,8 @@ document.addEventListener('DOMContentLoaded', () => {
       reportContainer.classList.add('hidden');
       document.querySelectorAll('.ship-btn').forEach(btn => btn.classList.remove('selected'));
       
-      // 処理完了後に確定ボタンを再び有効化
-      setTimeout(() => {
-        submitBtn.disabled = false;
-        submitBtn.textContent = '確定';
-        // 2秒後に成功メッセージを表示し、その後ページ全体をリロード
-        setTimeout(() => {
-          submitStatus.textContent = '報告が送信されました。ページを更新します...';
-          
-          // 報告送信完了後、ページ全体をリロードして初期状態に戻す
-          setTimeout(() => {
-            // ページを完全にリロード
-            window.location.reload();
-          }, 1000);
-        }, 2000);
-      }, 1000); // 1秒後に有効化
+      // 送信完了後、ページをリロードして初期状態に戻す
+      window.location.reload();
     } catch (e) {
       console.error('【デバッグ】送信処理エラー:', e);
       statusDisplay.textContent = '送信エラー';

@@ -43,13 +43,48 @@
         </div>
 
         <div class="image-section">
-          <label for="imageInput">画像添付</label>
+          <label>画像添付</label>
           <div class="image-input-container">
-            <input type="file" id="imageInput" accept="image/*" capture="camera">
+            <!-- 非表示の元のファイル選択入力 -->
+            <input type="file" id="imageInput" accept="image/*" style="display:none">
+            
+            <!-- 操作用ボタンを追加 -->
+            <div class="image-buttons">
+              <button type="button" id="selectImageBtn" class="secondary-btn">
+                <i class="fas fa-image"></i> ギャラリーから選択
+              </button>
+              <button type="button" id="takeCameraBtn" class="secondary-btn">
+                <i class="fas fa-camera"></i> カメラで撮影
+              </button>
+            </div>
+            
+            <!-- プレビュー表示エリア -->
             <div class="image-preview-container">
               <img id="imagePreview" src="#" alt="画像プレビュー" style="max-width: 100%; max-height: 200px; margin-top: 10px; display: none;"/>
             </div>
           </div>
+          
+          <!-- スタイル追加 -->
+          <style>
+            .image-buttons {
+              display: flex;
+              gap: 10px;
+              margin-bottom: 10px;
+            }
+            
+            .image-buttons button {
+              flex: 1;
+              padding: 8px;
+              border-radius: 4px;
+              background-color: #f0f0f0;
+              border: 1px solid #ccc;
+              cursor: pointer;
+            }
+            
+            .image-buttons button:hover {
+              background-color: #e0e0e0;
+            }
+          </style>
         </div>
 
         <div class="record-section">
