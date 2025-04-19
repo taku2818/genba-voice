@@ -489,9 +489,13 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
         submitBtn.disabled = false;
         submitBtn.textContent = '確定';
-        // 2秒後にステータスメッセージをクリア
+        // 2秒後にステータスメッセージをクリアしてログイン画面に戻る
         setTimeout(() => {
           submitStatus.textContent = '';
+          // 報告送信完了後はログイン画面に戻る
+          showScreen(loginScreen);
+          // ログイン画面に成功メッセージを表示
+          statusDisplay.textContent = "報告ありがとうございます。再度ログインしてください。";
         }, 2000);
       }, 1000); // 1秒後に有効化
     } catch (e) {
