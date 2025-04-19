@@ -489,13 +489,15 @@ document.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => {
         submitBtn.disabled = false;
         submitBtn.textContent = '確定';
-        // 2秒後にステータスメッセージをクリアしてログイン画面に戻る
+        // 2秒後に成功メッセージを表示し、その後ページ全体をリロード
         setTimeout(() => {
-          submitStatus.textContent = '';
-          // 報告送信完了後はログイン画面に戻る
-          showScreen(loginScreen);
-          // ログイン画面に成功メッセージを表示
-          statusDisplay.textContent = "報告ありがとうございます。再度ログインしてください。";
+          submitStatus.textContent = '報告が送信されました。ページを更新します...';
+          
+          // 報告送信完了後、ページ全体をリロードして初期状態に戻す
+          setTimeout(() => {
+            // ページを完全にリロード
+            window.location.reload();
+          }, 1000);
         }, 2000);
       }, 1000); // 1秒後に有効化
     } catch (e) {
