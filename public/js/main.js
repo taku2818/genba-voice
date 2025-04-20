@@ -228,213 +228,199 @@ function createReportWithAudio(audioBlob) {
         .then(data => {
             console.log('音声認識結果:', data);
             
-            let transcriptData = data.text || '';
-            let summary = '';
-            let summaryData = {};
-            
-            // 要約データが含まれているか確認
-            if (data.summary) {
-                try {
-                    // 文字列からJSONオブジェクトに変換（サーバー側で既にJSONの場合はこの処理は不要）
-                    if (typeof data.summary === 'string') {
-                        summaryData = JSON.parse(data.summary);
-                    } else {
-                        summaryData = data.summary;
-                    }
-                    
-                    // 要約テキストのみを抽出
-                    summary = summaryData.summary || '';
-                    
-                    // ブロック名をグローバル変数に保存
-                    if (summaryData.block) {
-                        window.lastDetectedBlock = summaryData.block;
-                        console.log(`検出されたブロック名: ${summaryData.block}`);
-                    }
-                    
-                    try {
-                        // 類似ブロック名を表示してユーザーが選択できるようにする
-                        if (blockCandidatesElement) {
-                            // 既存ブロック名と類似度の高いブロック名を最大3個表示
-                            // 大文字小文字やハイフン、アンダースコア、前後空白を無視する
-                            if (summaryData.block) {
-                                const normalizedBlockName = summaryData.block.toLowerCase().replace(/[_\-\s]/g, '');
-                                
-                                // 照合式比較関数
-                                const calculateSimilarity = (a, b) => {
-                                    const aStr = a.toLowerCase().replace(/[_\-\s]/g, '');
-                                    const bStr = b.toLowerCase().replace(/[_\-\s]/g, '');
-                                    return aStr.includes(bStr) || bStr.includes(aStr);
-                                };
-                                
-                                // 類似ブロック決定
-                                const similarBlocks = window.blockList
-                                    .filter(b => calculateSimilarity(b, normalizedBlockName) && b !== summaryData.block)
-                                    .slice(0, 3);
-                                
-                                console.log('ブロック名候補を表示: ',
-                                    summaryData.block, ' と類似ブロック ', similarBlocks.join(', '));
-                            } else {
-                                console.warn('検出されたブロック名がありません');
-                            }
-                        } else {
-                            console.error('ブロック候補表示時のエラー: DOM要素が見つかりません');
-                        }
-                        
-                        // 7. 要約テキストを正しく表示する - ここが間違っていました
-                        // 正しく設定：ブロック名はブロック欄に、要約は不具合内容欄に
-                        document.getElementById('summary').value = summaryData.summary;
-                        console.log('【重要】正しく設定 - ブロック名：', summaryData.block, ' / 要約：', summaryData.summary);
-                        
-                        // 8. 最後のチェックと再設定
-                        setTimeout(() => {
-                            // 全ての入力欄を再設定（確実に正しい値をセット）
-                            // 1. ブロック名は必ずブロック入力欄に設定
-                            document.getElementById('block-input').value = window.lastDetectedBlock;
-                            
-                            // 2. 要約は不具合内容欄に設定
-                            if (summaryData.summary) {
-                                document.getElementById('summary').value = summaryData.summary;
-                            }
-                            
-                            // 3. 確実に送信ボタンを有効化
-                            if (submitBtn) submitBtn.disabled = false;
-                            
-                            console.log('【再設定完了】ブロック名=' + window.lastDetectedBlock + ' / 要約=' + summaryData.summary);
-                            
-                            // 4. DirectInputユーティリティが利用可能な場合は使用
-                            if (window.DirectInput && summaryData.block) {
-                                window.DirectInput.setBlockValue(summaryData.block);
-                                console.log('【DirectInput】ブロック名設定試行:', summaryData.block);
-                            }
-                        }, 500);
-                    } catch (e) {
-                        console.error('【重大エラー】ブロック名設定失敗:', e);
-                        alert(`検出されたブロック名: ${summaryData.block || '不明'} を手動で入力してください。`);
-                    }
-                } catch (e) {
-                    console.error('要約データの解析に失敗しました:', e);
-                    summary = transcriptData;
-                }
             } else {
-                console.log('要約データがありません - 原文をそのまま使用します');
-                summary = transcriptData;
+              console.error('ブロック候補表示時のエラー: DOM要素が見つかりません');
             }
             
-            // 画面表示の更新
-            reportContainer.classList.remove('hidden');
-            statusDisplay.textContent = '処理完了';
-            statusMessage.textContent = '';
+            // 7. 要約テキストを正しく表示する - ここが間違っていました
+            // 正しく設定：ブロック名はブロック欄に、要約は不具合内容欄に
+            document.getElementById('summary').value = summaryData.summary;
+            console.log('【重要】正しく設定 - ブロック名：', summaryData.block, ' / 要約：', summaryData.summary);
             
-            // 要約表示 - ブロック名と不具合内容を分離
-            const summaryDisplay = document.getElementById('summary');
-            let summaryText = summaryData.summary || transcriptData;
-            
-            // ブロック名を除外した要約を表示
-            if (summaryData.block) {
-                // 「ブロック名はXXです」のパターンを除外
-                summaryText = summaryText.replace(new RegExp(`ブロック名は${summaryData.block}です.*?[。.]`, 'i'), '');
-                // 単純にブロック名自体を除外
-                summaryText = summaryText.replace(new RegExp(`${summaryData.block}`, 'ig'), '');
-                // 空白と余分な記号を整理
-                summaryText = summaryText.trim().replace(/^[\s,.:;。、]+/, '');
-                // DirectInputを使っても設定
-                if (window.DirectInput) {
-                    window.DirectInput.setSummaryText(summaryText);
-                }
-            }
-            
-            // フォールバックとして通常の方法でも設定
-            summaryDisplay.value = summaryText;
-        })
-        .catch(error => {
-            console.error('音声処理中にエラーが発生しました:', error);
-            statusDisplay.textContent = 'エラー';
-            statusMessage.textContent = error.message;
+            // 8. 最後のチェックと再設定
+            setTimeout(() => {
+              // 全ての入力欄を再設定（確実に正しい値をセット）
+              // 1. ブロック名は必ずブロック入力欄に設定
+              document.getElementById('block-input').value = window.lastDetectedBlock;
+              
+              // 2. 要約は不具合内容欄に設定
+              if (summaryData.summary) {
+                document.getElementById('summary').value = summaryData.summary;
+              }
+              
+              // 3. 確実に送信ボタンを有効化
+              if (submitBtn) submitBtn.disabled = false;
+              
+              console.log('【再設定完了】ブロック名=' + window.lastDetectedBlock + ' / 要約=' + summaryData.summary);
+              
+              // 4. DirectInputユーティリティが利用可能な場合は使用
+              if (window.DirectInput && summaryData.block) {
+                window.DirectInput.setBlockValue(summaryData.block);
+                console.log('【DirectInput】ブロック名設定試行:', summaryData.block);
+              }
+            }, 500);
+          } catch (e) {
+            console.error('【重大エラー】ブロック名設定失敗:', e);
+            alert(`検出されたブロック名: ${summaryData.block || '不明'} を手動で入力してください。`);
+          }
+        } catch (e) {
+          console.error('要約データの解析に失敗しました:', e);
+          summary = transcriptData;
+        }
+      } else {
+        console.log('要約データがありません - 原文をそのまま使用します');
+        summary = transcriptData;
+      }
+      
+      // 画像URLが複数の場合、HYPERLINKを複数生成し1セルに並べるよう修正
+      if (data.image_url) {
+        const urls = data.image_url.split(',');
+        let imageFormula = '';
+        urls.forEach((url, idx) => {
+          imageFormula += `=HYPERLINK("${url.trim()}", "画像${urls.length > 1 ? idx + 1 : ''}を表示") `;
         });
-    } catch (error) {
-        console.error('音声処理リクエスト作成中にエラーが発生しました:', error);
-        statusDisplay.textContent = 'エラー';
-        statusMessage.textContent = error.message;
-    }
+        console.log('画像リンクをHYPERLINK形式に変換:', imageFormula);
+      }
+      
+      // メール通知でも複数画像URLをリスト形式で表示
+      if (data.image_url) {
+        const urls = data.image_url.split(',');
+        let body = '';
+        urls.forEach((url, idx) => {
+          body += `・画像${urls.length > 1 ? idx + 1 : ''}: ${url.trim()}\n`;
+        });
+        console.log('メール通知に画像URLをリスト形式で追加:', body);
+      }
+      
+      // 画面表示の更新
+      reportContainer.classList.remove('hidden');
+      statusDisplay.textContent = '処理完了';
+      statusMessage.textContent = '';
+      
+      // 要約表示 - ブロック名と不具合内容を分離
+      const summaryDisplay = document.getElementById('summary');
+      let summaryText = summaryData.summary || transcriptData;
+      
+      // ブロック名を除外した要約を表示
+      if (summaryData.block) {
+        // 「ブロック名はXXです」のパターンを除外
+        summaryText = summaryText.replace(new RegExp(`ブロック名は${summaryData.block}です.*?[。.]`, 'i'), '');
+        // 単純にブロック名自体を除外
+        summaryText = summaryText.replace(new RegExp(`${summaryData.block}`, 'ig'), '');
+        // 空白と余分な記号を整理
+        summaryText = summaryText.trim().replace(/^[\s,.:;。、]+/, '');
+        // DirectInputを使っても設定
+        if (window.DirectInput) {
+          window.DirectInput.setSummaryText(summaryText);
+        }
+      }
+      
+      // フォールバックとして通常の方法でも設定
+      summaryDisplay.value = summaryText;
+    })
+    .catch(error => {
+      console.error('音声処理中にエラーが発生しました:', error);
+      statusDisplay.textContent = 'エラー';
+      statusMessage.textContent = error.message;
+    });
+  } catch (error) {
+    console.error('音声処理リクエスト作成中にエラーが発生しました:', error);
+    statusDisplay.textContent = 'エラー';
+    statusMessage.textContent = error.message;
+  }
 }
 
 // ブロック入力欄を探して値を設定する関数
 function findBlockInput() {
-    const selectors = ['#block-input', 'input[name="block"]', 'input[placeholder="ブロック名"]'];
-    for (const selector of selectors) {
-        const element = document.querySelector(selector);
-        if (element) return element;
-    }
-    return null;
+  const selectors = ['#block-input', 'input[name="block"]', 'input[placeholder="ブロック名"]'];
+  for (const selector of selectors) {
+    const element = document.querySelector(selector);
+    if (element) return element;
+  }
+  return null;
 }
 
 // レポート送信関数
 function submitReport(data, callback) {
-    try {
-        console.log('レポートを送信します', data);
-        
-        // 必要なフィールドが存在するか確認
-        if (!data.summary) {
-            callback({ success: false, message: '不具合内容が入力されていません' });
-            return;
-        }
-        
-        if (!data.block) {
-            callback({ success: false, message: 'ブロック名が入力されていません' });
-            return;
-        }
-        
-        // レポート作成日時
-        const now = new Date();
-        const timestamp = now.toISOString();
-        data.timestamp = timestamp;
-        
-        // ローカルストレージにレポートを保存（本来はサーバーに送信）
-        let reports = JSON.parse(localStorage.getItem('reports') || '[]');
-        reports.push(data);
-        localStorage.setItem('reports', JSON.stringify(reports));
-        
-        // ファイル名生成（報告書のファイル名標準化）
-        const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
-        const shipName = data.ship || 'unknown';
-        const blockName = data.block || 'unknown';
-        const reporterName = data.reporter || 'anonymous';
-        
-        // ファイル名フォーマット: report_YYYYMMDD_shipXXX_blockYYY_reporter.jpg
-        const fileName = `report_${dateStr}_ship${shipName}_block${blockName}_${reporterName}`;
-        console.log('生成されたファイル名:', fileName);
-        
-        // 送信成功をコールバック
-        callback({
-            success: true,
-            message: 'レポートを送信しました',
-            recentReports: reports // 最新のレポートを返す
-        });
-    } catch (err) {
-        console.error('レポート送信時のエラー:', err);
-        callback({ success: false, message: 'エラーが発生しました: ' + err.message });
+  try {
+    console.log('レポートを送信します', data);
+    
+    // 必要なフィールドが存在するか確認
+    if (!data.summary) {
+      callback({ success: false, message: '不具合内容が入力されていません' });
+      return;
     }
+    
+    if (!data.block) {
+      callback({ success: false, message: 'ブロック名が入力されていません' });
+      return;
+    }
+    
+    // レポート作成日時
+    const now = new Date();
+    const timestamp = now.toISOString();
+    data.timestamp = timestamp;
+    
+    // ローカルストレージにレポートを保存（本来はサーバーに送信）
+    let reports = JSON.parse(localStorage.getItem('reports') || '[]');
+    reports.push(data);
+    localStorage.setItem('reports', JSON.stringify(reports));
+    
+    // ファイル名生成（報告書のファイル名標準化）
+    const dateStr = now.toISOString().split('T')[0].replace(/-/g, '');
+    const shipName = data.ship || 'unknown';
+    const blockName = data.block || 'unknown';
+    const reporterName = data.reporter || 'anonymous';
+    
+    // ファイル名フォーマット: report_YYYYMMDD_shipXXX_blockYYY_reporter.jpg
+    const fileName = `report_${dateStr}_ship${shipName}_block${blockName}_${reporterName}`;
+    console.log('生成されたファイル名:', fileName);
+    
+    // 送信成功をコールバック
+    callback({
+      success: true,
+      message: 'レポートを送信しました',
+      recentReports: reports // 最新のレポートを返す
+    });
+  } catch (err) {
+    console.error('レポート送信時のエラー:', err);
+    callback({ success: false, message: 'エラーが発生しました: ' + err.message });
+  }
 }
 
 // 画像アップロード処理関数
 function handleImageUpload(file, options = {}) {
-    try {
-        // 画像読み込み時に、プレビューも表示
-        console.log('画像読み込み中...', file.name, file.size, file.type);
+  try {
+    // 画像読み込み時に、プレビューも表示
+    console.log('画像読み込み中...', file.name, file.size, file.type);
+    
+    const reader = new FileReader();
+    
+    // 読み込み完了時の処理
+    reader.onload = function(event) {
+      const img = new Image();
+      img.onload = function() {
+        // 大きな画像の場合はリサイズ
+        const maxSize = 800; // 最大サイズ
+        let width = img.width;
+        let height = img.height;
         
-        const reader = new FileReader();
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = height * (maxSize / width);
+            width = maxSize;
+          } else {
+            width = width * (maxSize / height);
+            height = maxSize;
+          }
+        }
         
-        // 読み込み完了時の処理
-        reader.onload = function(event) {
-            const img = new Image();
-            img.onload = function() {
-                // 大きな画像の場合はリサイズ
-                const maxSize = 800; // 最大サイズ
-                let width = img.width;
-                let height = img.height;
-                
-                if (width > maxSize || height > maxSize) {
-                    if (width > height) {
+        // キャンバスでリサイズ
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
                         height = height * (maxSize / width);
                         width = maxSize;
                     } else {

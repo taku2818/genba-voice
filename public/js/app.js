@@ -414,9 +414,11 @@ document.addEventListener('DOMContentLoaded', () => {
       
       console.log('【デバッグ】入力データ確認:', { shipNo, block, content, reporter, imageFile: imageFile ? imageFile.name : null });
 
-      if (!shipNo || !block || !content) {
-        console.log('【デバッグ】必須入力チェック失敗:', { shipNo, block, content });
+      if (!shipNo || !block || !content || !reporter) {
+        console.log('【デバッグ】必須項目チェック失敗:', { shipNo, block, content, reporter });
         alert('すべての項目を入力してください');
+        submitBtn.disabled = false;
+        submitBtn.textContent = '確定';
         return;
       }
       console.log('【デバッグ】入力チェック成功');
@@ -440,8 +442,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const date = new Date().toISOString().slice(0,10).replace(/-/g, "");
         for (let i = 0; i < selectedImageFiles.length; i++) {
           const file = selectedImageFiles[i];
-          // ファイル名にインデックスを付与（2枚目以降）
-          const filename = `report_${date}_ship${shipNo}_block${block}_${reporter}${selectedImageFiles.length > 1 ? `_img${i+1}` : ''}.jpg`;
+          // ファイル名生成（複数画像時は連番サフィックスを付与）
+          let filename = `report_${date}_ship${shipNo}_block${block}_${reporter}.jpg`;
+          if (window.selectedImageFiles && window.selectedImageFiles.length > 1) {
+            filename = `report_${date}_ship${shipNo}_block${block}_${reporter}_${i+1}.jpg`;
+          }
           const renamedFile = new File([file], filename, { type: file.type });
           const imgForm = new FormData();
           imgForm.append('image', renamedFile);
