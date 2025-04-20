@@ -307,25 +307,91 @@ document.addEventListener('DOMContentLoaded', () => {
   // 画像添付時にプレビュー表示
   const imageInputElem = document.getElementById('imageInput');
   const imagePreviewElem = document.getElementById('imagePreview');
-  if (imageInputElem && imagePreviewElem) {
-    imageInputElem.addEventListener('change', (event) => {
-      const file = event.target.files[0];
-      if (file) {
+  const galleryBtn = document.getElementById('selectImageBtn');
+  const cameraBtn = document.getElementById('takeCameraBtn');
+
+  // プレビュー描画関数
+  function renderImagePreviews() {
+    const previewContainer = imagePreviewElem.parentElement;
+    const files = window.selectedImageFiles || [];
+    previewContainer.querySelectorAll('.multi-image-preview, .multi-image-wrapper').forEach(el => el.remove());
+    if (files.length === 0) {
+      imagePreviewElem.style.display = 'none';
+      imagePreviewElem.src = '#';
+    } else {
+      imagePreviewElem.style.display = 'none';
+      imagePreviewElem.src = '#';
+      files.forEach((file, idx) => {
         const reader = new FileReader();
         reader.onload = (e) => {
-          imagePreviewElem.src = e.target.result;
-          imagePreviewElem.style.display = 'block';
-          
-          // 選択されたファイルを保存
-          window.selectedImageFile = file;
-          console.log('画像が選択されました:', file.name, file.type, file.size);
+          // 画像プレビュー
+          const wrapper = document.createElement('span');
+          wrapper.className = 'multi-image-wrapper';
+          wrapper.style.position = 'relative';
+          wrapper.style.display = 'inline-block';
+          wrapper.style.margin = '2px';
+          // 削除ボタン
+          const delBtn = document.createElement('button');
+          delBtn.textContent = '✕';
+          delBtn.title = 'この画像を削除';
+          delBtn.style.position = 'absolute';
+          delBtn.style.top = '2px';
+          delBtn.style.right = '2px';
+          delBtn.style.background = 'rgba(255,255,255,0.8)';
+          delBtn.style.border = 'none';
+          delBtn.style.borderRadius = '50%';
+          delBtn.style.cursor = 'pointer';
+          delBtn.style.zIndex = '2';
+          delBtn.onclick = () => {
+            let arr = window.selectedImageFiles || [];
+            arr.splice(idx, 1);
+            window.selectedImageFiles = arr;
+            renderImagePreviews();
+          };
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          img.className = 'multi-image-preview';
+          img.style.maxWidth = '120px';
+          img.style.maxHeight = '120px';
+          img.style.display = 'block';
+          img.style.margin = '0 auto';
+          wrapper.appendChild(img);
+          wrapper.appendChild(delBtn);
+          previewContainer.appendChild(wrapper);
         };
         reader.readAsDataURL(file);
-      } else {
-        imagePreviewElem.style.display = 'none';
-        imagePreviewElem.src = '#';
-        window.selectedImageFile = null;
+      });
+    }
+    console.log('画像ファイル選択:', files.map(f => f.name));
+  }
+
+  if (imageInputElem && imagePreviewElem) {
+    imageInputElem.addEventListener('change', (event) => {
+      let newFiles = Array.from(event.target.files);
+      let currentFiles = window.selectedImageFiles || [];
+      let combinedFiles = currentFiles.concat(newFiles);
+      if (combinedFiles.length > 2) {
+        alert('画像は2枚まで添付できます。2枚を超える画像は追加されません。');
+        combinedFiles = combinedFiles.slice(0, 2);
       }
+      window.selectedImageFiles = combinedFiles;
+      renderImagePreviews();
+    });
+  }
+  // ギャラリー選択ボタン
+  if (galleryBtn && imageInputElem) {
+    galleryBtn.addEventListener('click', () => {
+      imageInputElem.accept = 'image/*';
+      imageInputElem.removeAttribute('capture'); // ギャラリー選択時はcapture属性を削除
+      imageInputElem.click();
+    });
+  }
+  // カメラ撮影ボタン
+  if (cameraBtn && imageInputElem) {
+    cameraBtn.addEventListener('click', () => {
+      imageInputElem.accept = 'image/*';
+      imageInputElem.setAttribute('capture', 'environment'); // カメラ撮影時のみcapture属性をセット
+      imageInputElem.click();
     });
   }
 
@@ -365,67 +431,61 @@ document.addEventListener('DOMContentLoaded', () => {
       // }
 
       console.log('【デバッグ】送信処理開始');
-      let imageUrl = null;
-      
-      // 画像がある場合のみアップロード処理を実行
-      if (imageFile) {
+      // 複数画像アップロード対応
+      let imageUrls = [];
+      const selectedImageFiles = window.selectedImageFiles || [];
+      if (selectedImageFiles.length > 0) {
         statusDisplay.textContent = '画像アップロード中...';
         submitStatus.textContent = '画像アップロード中...';
-        // 画像ファイル名リネーム
         const date = new Date().toISOString().slice(0,10).replace(/-/g, "");
-        const filename = `report_${date}_ship${shipNo}_block${block}_${reporter}.jpg`;
-        const renamedFile = new File([imageFile], filename, { type: imageFile.type });
-
-        // 画像アップロードAPI呼び出し
-        const imgForm = new FormData();
-        imgForm.append('image', renamedFile);
-        imgForm.append('reporter', reporter);
-        imgForm.append('shipNO', shipNo);
-        imgForm.append('block', block);
-        const imgRes = await fetch("/api/upload-image-gas", {
-          method: "POST",
-          body: imgForm
-        });
-        const imgResult = await imgRes.json();
-        
-        // レスポンス全体を表示して内容を確認
-        console.log('サーバーからのレスポンス全体:', imgResult);
-        
-        // successがあれば、画像URLを取得する
-        if (imgResult && imgResult.success) {
-          // プロパティ名がimageUrlかもしれないしfileUrlかもしれない
-          imageUrl = imgResult.imageUrl || imgResult.fileUrl;
-          
-          if (imageUrl) {
-            // グローバル変数にも保存
-            window.lastUploadedImageUrl = imageUrl;
-            console.log('画像アップロード成功:', imageUrl);
-          } else {
-            // レスポンスに含まれるすべてのプロパティを確認
-            console.log('レスポンスのプロパティ一覧:', Object.keys(imgResult));
-            // 無理やり最初のプロパティで試す
-            const possibleUrlField = Object.keys(imgResult).find(key => 
-              key.includes('url') || key.includes('Url') || key.includes('URL') || 
-              key.includes('link') || key.includes('Link') || key.includes('file') || key.includes('File'));
-            
-            if (possibleUrlField) {
-              imageUrl = imgResult[possibleUrlField];
-              window.lastUploadedImageUrl = imageUrl;
-              console.log('代替プロパティからURL取得:', possibleUrlField, imageUrl);
+        for (let i = 0; i < selectedImageFiles.length; i++) {
+          const file = selectedImageFiles[i];
+          // ファイル名にインデックスを付与（2枚目以降）
+          const filename = `report_${date}_ship${shipNo}_block${block}_${reporter}${selectedImageFiles.length > 1 ? `_img${i+1}` : ''}.jpg`;
+          const renamedFile = new File([file], filename, { type: file.type });
+          const imgForm = new FormData();
+          imgForm.append('image', renamedFile);
+          imgForm.append('reporter', reporter);
+          imgForm.append('shipNO', shipNo);
+          imgForm.append('block', block);
+          try {
+            const imgRes = await fetch("/api/upload-image-gas", {
+              method: "POST",
+              body: imgForm
+            });
+            const imgResult = await imgRes.json();
+            console.log('サーバーからのレスポンス全体:', imgResult);
+            let url = null;
+            if (imgResult && imgResult.success) {
+              url = imgResult.imageUrl || imgResult.fileUrl;
+              if (!url) {
+                const possibleUrlField = Object.keys(imgResult).find(key => 
+                  key.includes('url') || key.includes('Url') || key.includes('URL') || 
+                  key.includes('link') || key.includes('Link') || key.includes('file') || key.includes('File'));
+                if (possibleUrlField) {
+                  url = imgResult[possibleUrlField];
+                }
+              }
+              if (url) {
+                imageUrls.push(url);
+                window.lastUploadedImageUrl = url;
+                console.log('画像アップロード成功:', url);
+              } else {
+                console.warn('URLらしいプロパティが見つかりませんでした');
+              }
             } else {
-              console.warn('URLらしいプロパティが見つかりませんでした');
-              imageUrl = null;
+              console.warn('画像アップロード失敗:', imgResult);
             }
+          } catch (e) {
+            console.warn('画像アップロードエラー:', e);
           }
-        } else {
-          console.warn('画像アップロード失敗:', imgResult);
-          imageUrl = null;
         }
       } else {
         console.log('画像なしで続行します');
-        // 画像がない場合はダミーエンドポイントを呼ばずにスキップ
-        imageUrl = null;
       }
+      // カンマ区切りで1セルにまとめる
+      const finalImageUrl = imageUrls.join(',');
+
 
       // 音声データ処理（あれば文字起こし、なければスキップ）
       if (audioBlob) {
@@ -438,11 +498,7 @@ document.addEventListener('DOMContentLoaded', () => {
       statusDisplay.textContent = 'Google Sheetsへ送信中...';
       submitStatus.textContent = 'Google Sheetsへ送信中...';
       // 画像URLをログ出力して確認
-      console.log('画像URL確認:', imageUrl);
-      console.log('グローバル変数の画像URL:', window.lastUploadedImageUrl);
-
-      // ローカル変数かグローバル変数から画像URLを取得
-      const finalImageUrl = imageUrl || window.lastUploadedImageUrl || "";
+      // 画像URL（複数対応）をGoogle Sheets用にセット
       console.log('最終的な画像URL:', finalImageUrl);
       
       // Google Sheetsへ送信

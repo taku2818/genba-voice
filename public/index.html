@@ -46,7 +46,7 @@
           <label>画像添付</label>
           <div class="image-input-container">
             <!-- 非表示の元のファイル選択入力 -->
-            <input type="file" id="imageInput" accept="image/*" style="display:none">
+            <input type="file" id="imageInput" accept="image/*" style="display:none" multiple>
             
             <!-- 操作用ボタンを追加 -->
             <div class="image-buttons">
@@ -62,6 +62,7 @@
             <div class="image-preview-container">
               <img id="imagePreview" src="#" alt="画像プレビュー" style="max-width: 100%; max-height: 200px; margin-top: 10px; display: none;"/>
             </div>
+            <div class="image-limit-notice" style="color: #888; font-size: 0.9em; margin-top: 4px;">※画像は2枚まで添付できます</div>
           </div>
           
           <!-- スタイル追加 -->
